@@ -1,0 +1,39 @@
+app                     ICON                    "merry_icon.ico"
+DESC                    ICON                    "desc.ico"
+ASC                     ICON                    "asc.ico"
+#ifdef __WXMSW__
+#include <wx/msw/wx.rc>
+#endif
+#include "../src/ALMRunVersion.h"
+#define VER_DATE "ALMRun "##VERSION_DATE
+1 VERSIONINFO
+ FILEVERSION VERSION_INT
+ PRODUCTVERSION VERSION_INT
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x0L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404b0"
+        BEGIN
+            VALUE "CompanyName", "http://chenall.net"
+            VALUE "FileDescription", "ALMRun 便捷启动工具,集热键管理,快速启动于一身"
+            VALUE "FileVersion", VERSION_STR
+            VALUE "InternalName", VER_DATE
+            VALUE "LegalCopyright", "Copyright (C) 2016"
+            VALUE "OriginalFilename", "ALMRun.exe"
+            VALUE "ProductName", "ALMRun"
+            VALUE "ProductVersion", VERSION_STR
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END

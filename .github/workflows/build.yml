@@ -1,0 +1,96 @@
+name: Build ALMRun (with shutdown fix)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, main]
+
+jobs:
+  build:
+    runs-on: windows-2019
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup MSVC x86
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x86
+
+    - name: Cache wxWidgets
+      id: cache-wx
+      uses: actions/cache@v4
+      with:
+        path: C:\wxWidgets
+        key: wxwidgets-3.2.4-msvc-x86-static-v2
+
+    - name: Download and Build wxWidgets
+      if: steps.cache-wx.outputs.cache-hit != 'true'
+      shell: cmd
+      run: |
+        cd C:\
+        echo === Downloading wxWidgets 3.2.4 ===
+        curl -L -o wx.7z https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.4/wxWidgets-3.2.4.7z
+        7z x wx.7z -oC:\wxWidgets
+        cd C:\wxWidgets\build\msw
+        echo === Building wxWidgets Release (static, Unicode) ===
+        nmake -f makefile.vc BUILD=release SHARED=0 UNICODE=1 RUNTIME_LIBS=static
+        echo === Building wxWidgets Debug ===
+        nmake -f makefile.vc BUILD=debug SHARED=0 UNICODE=1 RUNTIME_LIBS=static
+        echo === wxWidgets build complete ===
+
+    - name: Patch CMakeLists for modern toolset
+      shell: bash
+      run: |
+        sed -i 's/set(CMAKE_VS_PLATFORM_TOOLSET v110_xp)/# Removed v110_xp for modern VS/' CMakeLists.txt
+        echo "Patched CMakeLists.txt:"
+        head -5 CMakeLists.txt
+
+    - name: Configure CMake
+      shell: cmd
+      env:
+        WXWIN: C:\wxWidgets
+      run: |
+        cmake -A Win32 -G "Visual Studio 16 2019" -DRTL=MT -DCMAKE_BUILD_TYPE=Release .
+
+    - name: Build ALMRun
+      shell: cmd
+      run: |
+        cmake --build . --config Release --parallel 2>&1
+        echo === Build complete ===
+        dir /s /b Release\ALMRun.exe 2>nul
+        dir /s /b ALMRun.exe 2>nul
+
+    - name: Package artifacts
+      shell: bash
+      run: |
+        mkdir -p artifact
+        # Find and copy the built exe
+        EXE_PATH=$(find . -name "ALMRun.exe" -type f | head -1)
+        if [ -z "$EXE_PATH" ]; then
+          echo "ERROR: ALMRun.exe not found!"
+          find . -name "*.exe" -type f
+          exit 1
+        fi
+        echo "Found exe: $EXE_PATH"
+        cp "$EXE_PATH" artifact/ALMRun.exe
+        # Copy runtime dependencies
+        cp bin/lua51.dll artifact/ 2>/dev/null || true
+        cp third_party/Everything-SDK/dll/Everything32.dll artifact/ 2>/dev/null || true
+        # Copy config and resources
+        cp bin/ALMRun.ini artifact/ 2>/dev/null || true
+        cp bin/ShortCutList.txt artifact/ 2>/dev/null || true
+        cp -r bin/config artifact/ 2>/dev/null || true
+        cp -r bin/LuaEx artifact/ 2>/dev/null || true
+        cp -r bin/skin artifact/ 2>/dev/null || true
+        # Copy the shutdown guard
+        cp -r ../ALMRunGuard/ALMRunShutdownGuard.exe artifact/ 2>/dev/null || true
+        echo "=== Artifact contents ==="
+        ls -la artifact/
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ALMRun-fixed-windows
+        path: artifact/
+        retention-days: 90
