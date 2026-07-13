@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2019
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -22,15 +22,15 @@ jobs:
       uses: actions/cache@v4
       with:
         path: C:\wxWidgets
-        key: wxwidgets-3.2.4-msvc-x86-static-v2
+        key: wxwidgets-3.2.5-msvc-x86-static-v3
 
     - name: Download and Build wxWidgets
       if: steps.cache-wx.outputs.cache-hit != 'true'
       shell: cmd
       run: |
         cd C:\
-        echo === Downloading wxWidgets 3.2.4 ===
-        curl -L -o wx.7z https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.4/wxWidgets-3.2.4.7z
+        echo === Downloading wxWidgets 3.2.5 ===
+        curl -L -o wx.7z https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.5/wxWidgets-3.2.5.7z
         7z x wx.7z -oC:\wxWidgets
         cd C:\wxWidgets\build\msw
         echo === Building wxWidgets Release (static, Unicode) ===
@@ -51,7 +51,7 @@ jobs:
       env:
         WXWIN: C:\wxWidgets
       run: |
-        cmake -A Win32 -G "Visual Studio 16 2019" -DRTL=MT -DCMAKE_BUILD_TYPE=Release .
+        cmake -A Win32 -G "Visual Studio 17 2022" -DRTL=MT -DCMAKE_BUILD_TYPE=Release .
 
     - name: Build ALMRun
       shell: cmd
@@ -83,8 +83,6 @@ jobs:
         cp -r bin/config artifact/ 2>/dev/null || true
         cp -r bin/LuaEx artifact/ 2>/dev/null || true
         cp -r bin/skin artifact/ 2>/dev/null || true
-        # Copy the shutdown guard
-        cp -r ../ALMRunGuard/ALMRunShutdownGuard.exe artifact/ 2>/dev/null || true
         echo "=== Artifact contents ==="
         ls -la artifact/
 
