@@ -24,29 +24,33 @@ jobs:
       uses: actions/cache@v4
       with:
         path: C:\wxWidgets
-        key: wxwidgets-3.2.4-msvc-x86-static-v5
+        key: wxwidgets-3.2.4-msvc-x86-static-v6
 
-    - name: Download wxWidgets source
+    - name: Download and extract wxWidgets source
       if: steps.cache-wx.outputs.cache-hit != 'true'
-      shell: powershell
+      shell: cmd
       run: |
-        $ErrorActionPreference = 'Stop'
-        Write-Host "=== Downloading wxWidgets 3.2.4 source ==="
-        $url = "https://github.com/wxWidgets/wxWidgets/archive/refs/tags/v3.2.4.zip"
-        $zipPath = "$env:TEMP\wxwidgets-3.2.4.zip"
-        Invoke-WebRequest -Uri $url -OutFile $zipPath -UseBasicParsing
-        Write-Host "Downloaded $([math]::Round((Get-Item $zipPath).Length / 1MB, 2)) MB"
-        Write-Host "=== Extracting ==="
-        Expand-Archive -Path $zipPath -DestinationPath C:\ -Force
-        if (Test-Path "C:\wxWidgets-3.2.4") {
-          Rename-Item -Path "C:\wxWidgets-3.2.4" -NewName "C:\wxWidgets"
-        } else {
-          throw "Extraction failed: C:\wxWidgets-3.2.4 not found"
-        }
-        if (-not (Test-Path "C:\wxWidgets\include\wx\wx.h")) {
-          throw "wxWidgets headers not found after extraction"
-        }
-        Write-Host "=== wxWidgets source extracted successfully ==="
+        echo === Downloading wxWidgets 3.2.4 source zip ===
+        curl -L -o "%TEMP%\wxwidgets.zip" "https://github.com/wxWidgets/wxWidgets/archive/refs/tags/v3.2.4.zip"
+        if errorlevel 1 exit /b 1
+        echo Downloaded:
+        dir "%TEMP%\wxwidgets.zip"
+        echo === Extracting with 7-Zip ===
+        if exist C:\wxWidgets rmdir /S /Q C:\wxWidgets
+        "C:\Program Files\7-Zip\7z.exe" x "%TEMP%\wxwidgets.zip" -oC:\ -y
+        if errorlevel 1 exit /b 1
+        if not exist "C:\wxWidgets-3.2.4" (
+          echo ERROR: C:\wxWidgets-3.2.4 not found after extraction
+          dir C:\ | findstr wxWidgets
+          exit /b 1
+        )
+        ren "C:\wxWidgets-3.2.4" wxWidgets
+        if not exist "C:\wxWidgets\build\msw\makefile.vc" (
+          echo ERROR: makefile.vc not found
+          exit /b 1
+        )
+        echo === wxWidgets source extracted successfully ===
+        dir C:\wxWidgets\build\msw\makefile.vc
 
     - name: Build wxWidgets
       if: steps.cache-wx.outputs.cache-hit != 'true'
@@ -54,7 +58,7 @@ jobs:
       env:
         WXWIN: C:\wxWidgets
       run: |
-        cd C:\wxWidgets\build\msw
+        cd /D C:\wxWidgets\build\msw
         echo === Building wxWidgets Release (static, Unicode) ===
         nmake -f makefile.vc BUILD=release SHARED=0 UNICODE=1 RUNTIME_LIBS=static CXXFLAGS=/MP CFLAGS=/MP
         if errorlevel 1 exit /b 1
