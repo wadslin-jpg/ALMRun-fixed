@@ -50,29 +50,16 @@ jobs:
 
     - name: Build wxWidgets
       if: steps.cache-wx.outputs.cache-hit != 'true'
-      shell: powershell
+      shell: cmd
+      env:
+        WXWIN: C:\wxWidgets
       run: |
-        $ErrorActionPreference = 'Stop'
-        $env:WXWIN = "C:\wxWidgets"
-        Write-Host "=== Building wxWidgets Release (static, Unicode) ==="
-        Push-Location "C:\wxWidgets\build\msw"
-        # Find vsdevcmd.bat
-        $vsPaths = @(
-          "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\vsdevcmd.bat",
-          "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\vsdevcmd.bat",
-          "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\vsdevcmd.bat",
-          "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevCmd.ps1"
-        )
-        $vsdevcmd = $null
-        foreach ($p in $vsPaths) { if (Test-Path $p) { $vsdevcmd = $p; break } }
-        if (-not $vsdevcmd) { throw "vsdevcmd.bat not found in VS2022 standard locations" }
-        Write-Host "Using: $vsdevcmd"
-        # Launch nmake via vsdevcmd
-        $cmd = "`"$vsdevcmd`" -arch=x86 -host_arch=x86 >NUL && set WXWIN=C:\wxWidgets && nmake -f makefile.vc BUILD=release SHARED=0 UNICODE=1 RUNTIME_LIBS=static CXXFLAGS=/MP CFLAGS=/MP"
-        cmd /c $cmd
-        if ($LASTEXITCODE -ne 0) { throw "nmake failed with code $LASTEXITCODE" }
-        Pop-Location
-        Write-Host "=== wxWidgets build complete ==="
+        cd C:\wxWidgets\build\msw
+        echo === Building wxWidgets Release (static, Unicode) ===
+        nmake -f makefile.vc BUILD=release SHARED=0 UNICODE=1 RUNTIME_LIBS=static CXXFLAGS=/MP CFLAGS=/MP
+        if errorlevel 1 exit /b 1
+        echo === wxWidgets build complete ===
+        dir /b C:\wxWidgets\lib\vc_lib\*.lib 2>nul
 
     - name: Patch CMakeLists for modern toolset
       shell: bash
