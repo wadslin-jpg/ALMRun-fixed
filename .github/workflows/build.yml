@@ -67,19 +67,18 @@ jobs:
         echo "=== CMakeLists.txt (first 30 lines) ==="
         head -30 CMakeLists.txt
 
-    - name: Configure CMake
+    - name: Configure CMake (Ninja generator, uses cl.exe from MSVC dev cmd)
       shell: cmd
       env:
         WXWIN: C:\wxWidgets
       run: |
-        cmake -A Win32 -G "Visual Studio 17 2022" -DRTL=MT -DCMAKE_BUILD_TYPE=Release .
+        cmake -G Ninja -DRTL=MT -DCMAKE_BUILD_TYPE=Release .
 
     - name: Build ALMRun
       shell: cmd
       run: |
-        cmake --build . --config Release --parallel 2>&1
+        cmake --build . --parallel 2>&1
         echo === Build complete ===
-        dir /s /b Release\ALMRun.exe 2>nul
         dir /s /b ALMRun.exe 2>nul
 
     - name: Package artifacts
