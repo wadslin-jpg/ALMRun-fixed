@@ -11,6 +11,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - name: Setup MSVC x86
       uses: ilammy/msvc-dev-cmd@v1
@@ -22,29 +24,62 @@ jobs:
       uses: actions/cache@v4
       with:
         path: C:\wxWidgets
-        key: wxwidgets-3.2.5-msvc-x86-static-v3
+        key: wxwidgets-3.2.4-msvc-x86-static-v5
 
-    - name: Download and Build wxWidgets
+    - name: Download wxWidgets source
       if: steps.cache-wx.outputs.cache-hit != 'true'
-      shell: cmd
+      shell: powershell
       run: |
-        cd C:\
-        echo === Downloading wxWidgets 3.2.5 ===
-        curl -L -o wx.7z https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.5/wxWidgets-3.2.5.7z
-        7z x wx.7z -oC:\wxWidgets
-        cd C:\wxWidgets\build\msw
-        echo === Building wxWidgets Release (static, Unicode) ===
-        nmake -f makefile.vc BUILD=release SHARED=0 UNICODE=1 RUNTIME_LIBS=static
-        echo === Building wxWidgets Debug ===
-        nmake -f makefile.vc BUILD=debug SHARED=0 UNICODE=1 RUNTIME_LIBS=static
-        echo === wxWidgets build complete ===
+        $ErrorActionPreference = 'Stop'
+        Write-Host "=== Downloading wxWidgets 3.2.4 source ==="
+        $url = "https://github.com/wxWidgets/wxWidgets/archive/refs/tags/v3.2.4.zip"
+        $zipPath = "$env:TEMP\wxwidgets-3.2.4.zip"
+        Invoke-WebRequest -Uri $url -OutFile $zipPath -UseBasicParsing
+        Write-Host "Downloaded $([math]::Round((Get-Item $zipPath).Length / 1MB, 2)) MB"
+        Write-Host "=== Extracting ==="
+        Expand-Archive -Path $zipPath -DestinationPath C:\ -Force
+        if (Test-Path "C:\wxWidgets-3.2.4") {
+          Rename-Item -Path "C:\wxWidgets-3.2.4" -NewName "C:\wxWidgets"
+        } else {
+          throw "Extraction failed: C:\wxWidgets-3.2.4 not found"
+        }
+        if (-not (Test-Path "C:\wxWidgets\include\wx\wx.h")) {
+          throw "wxWidgets headers not found after extraction"
+        }
+        Write-Host "=== wxWidgets source extracted successfully ==="
+
+    - name: Build wxWidgets
+      if: steps.cache-wx.outputs.cache-hit != 'true'
+      shell: powershell
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $env:WXWIN = "C:\wxWidgets"
+        Write-Host "=== Building wxWidgets Release (static, Unicode) ==="
+        Push-Location "C:\wxWidgets\build\msw"
+        # Find vsdevcmd.bat
+        $vsPaths = @(
+          "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\vsdevcmd.bat",
+          "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\vsdevcmd.bat",
+          "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\vsdevcmd.bat",
+          "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevCmd.ps1"
+        )
+        $vsdevcmd = $null
+        foreach ($p in $vsPaths) { if (Test-Path $p) { $vsdevcmd = $p; break } }
+        if (-not $vsdevcmd) { throw "vsdevcmd.bat not found in VS2022 standard locations" }
+        Write-Host "Using: $vsdevcmd"
+        # Launch nmake via vsdevcmd
+        $cmd = "`"$vsdevcmd`" -arch=x86 -host_arch=x86 >NUL && set WXWIN=C:\wxWidgets && nmake -f makefile.vc BUILD=release SHARED=0 UNICODE=1 RUNTIME_LIBS=static CXXFLAGS=/MP CFLAGS=/MP"
+        cmd /c $cmd
+        if ($LASTEXITCODE -ne 0) { throw "nmake failed with code $LASTEXITCODE" }
+        Pop-Location
+        Write-Host "=== wxWidgets build complete ==="
 
     - name: Patch CMakeLists for modern toolset
       shell: bash
       run: |
-        sed -i 's/set(CMAKE_VS_PLATFORM_TOOLSET v110_xp)/# Removed v110_xp for modern VS/' CMakeLists.txt
-        echo "Patched CMakeLists.txt:"
-        head -5 CMakeLists.txt
+        sed -i 's/set(CMAKE_VS_PLATFORM_TOOLSET v110_xp)/# Removed v110_xp for modern VS/' CMakeLists.txt || true
+        echo "=== CMakeLists.txt (first 30 lines) ==="
+        head -30 CMakeLists.txt
 
     - name: Configure CMake
       shell: cmd
