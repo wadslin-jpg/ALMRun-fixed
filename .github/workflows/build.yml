@@ -24,7 +24,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: C:\wxWidgets
-        key: wxwidgets-3.2.4-msvc-x86-static-v7
+        key: wxwidgets-3.2.4-msvc-x86-static-v8
 
     - name: Clone wxWidgets with submodules
       if: steps.cache-wx.outputs.cache-hit != 'true'
@@ -55,10 +55,18 @@ jobs:
       run: |
         cd /D C:\wxWidgets\build\msw
         echo === Building wxWidgets Release (static, Unicode) ===
-        nmake -f makefile.vc BUILD=release SHARED=0 UNICODE=1 RUNTIME_LIBS=static CXXFLAGS=/MP CFLAGS=/MP
+        nmake -f makefile.vc BUILD=release SHARED=0 UNICODE=1 RUNTIME_LIBS=static CXXFLAGS="/MP /std:c++17" CFLAGS=/MP
         if errorlevel 1 exit /b 1
         echo === wxWidgets build complete ===
         dir /b C:\wxWidgets\lib\vc_lib\*.lib 2>nul
+        echo === Verifying setup.h ===
+        if not exist "C:\wxWidgets\lib\vc_lib\mswu\wx\setup.h" (
+          echo ERROR: setup.h not found at lib\vc_lib\mswu\wx\setup.h
+          dir /s /b C:\wxWidgets\lib\vc_lib\*setup.h 2>nul
+          exit /b 1
+        )
+        echo setup.h OK: 
+        dir C:\wxWidgets\lib\vc_lib\mswu\wx\setup.h
 
     - name: Patch CMakeLists for modern toolset
       shell: bash
