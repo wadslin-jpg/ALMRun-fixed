@@ -24,33 +24,28 @@ jobs:
       uses: actions/cache@v4
       with:
         path: C:\wxWidgets
-        key: wxwidgets-3.2.4-msvc-x86-static-v6
+        key: wxwidgets-3.2.4-msvc-x86-static-v7
 
-    - name: Download and extract wxWidgets source
+    - name: Clone wxWidgets with submodules
       if: steps.cache-wx.outputs.cache-hit != 'true'
       shell: cmd
       run: |
-        echo === Downloading wxWidgets 3.2.4 source zip ===
-        curl -L -o "%TEMP%\wxwidgets.zip" "https://github.com/wxWidgets/wxWidgets/archive/refs/tags/v3.2.4.zip"
-        if errorlevel 1 exit /b 1
-        echo Downloaded:
-        dir "%TEMP%\wxwidgets.zip"
-        echo === Extracting with 7-Zip ===
+        echo === Cloning wxWidgets 3.2.4 with all submodules (PCRE2, nanosvg, etc.) ===
         if exist C:\wxWidgets rmdir /S /Q C:\wxWidgets
-        "C:\Program Files\7-Zip\7z.exe" x "%TEMP%\wxwidgets.zip" -oC:\ -y
+        git clone --branch v3.2.4 --depth 1 --recursive https://github.com/wxWidgets/wxWidgets.git C:\wxWidgets
         if errorlevel 1 exit /b 1
-        if not exist "C:\wxWidgets-3.2.4" (
-          echo ERROR: C:\wxWidgets-3.2.4 not found after extraction
-          dir C:\ | findstr wxWidgets
-          exit /b 1
-        )
-        ren "C:\wxWidgets-3.2.4" wxWidgets
         if not exist "C:\wxWidgets\build\msw\makefile.vc" (
-          echo ERROR: makefile.vc not found
+          echo ERROR: makefile.vc not found after clone
           exit /b 1
         )
-        echo === wxWidgets source extracted successfully ===
-        dir C:\wxWidgets\build\msw\makefile.vc
+        if not exist "C:\wxWidgets\3rdparty\pcre\src\pcre2_auto_possess.c" (
+          echo ERROR: PCRE2 submodule not initialized - pcre2_auto_possess.c missing
+          dir C:\wxWidgets\3rdparty\pcre\src\ 2>nul
+          exit /b 1
+        )
+        echo === wxWidgets source with submodules ready ===
+        echo PCRE2 check: 
+        dir C:\wxWidgets\3rdparty\pcre\src\pcre2_auto_possess.c
 
     - name: Build wxWidgets
       if: steps.cache-wx.outputs.cache-hit != 'true'
