@@ -1,12 +1,12 @@
 #pragma once
 #ifndef _ALMRUN_COMMON_H_
 #define _ALMRUN_COMMON_H_
-#include <shlobj.h>
-#include <wx/fileconf.h>
 #include "MerryWx.h"
+#include <wx/fileconf.h>
 #include "MerryLua.h"
 #include "wx/sstream.h"
 #include "wx/url.h"
+#include <shlobj.h>
 
 class ALMRunCMDBase
 {

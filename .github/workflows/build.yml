@@ -68,6 +68,37 @@ jobs:
         echo setup.h OK: 
         dir C:\wxWidgets\lib\vc_lib\mswu\wx\setup.h
 
+    - name: Verify wxWidgets setup.h (always run, even on cache hit)
+      shell: cmd
+      env:
+        WXWIN: C:\wxWidgets
+      run: |
+        echo === Checking setup.h locations ===
+        if exist "C:\wxWidgets\lib\vc_lib\mswu\wx\setup.h" (
+          echo FOUND: lib\vc_lib\mswu\wx\setup.h
+          echo --- First 10 lines ---
+          type "C:\wxWidgets\lib\vc_lib\mswu\wx\setup.h" | more +0 /e /c /t10
+        ) else (
+          echo NOT FOUND: lib\vc_lib\mswu\wx\setup.h
+        )
+        echo.
+        if exist "C:\wxWidgets\include\msvc\wx\setup.h" (
+          echo FOUND: include\msvc\wx\setup.h (redirect)
+        ) else (
+          echo NOT FOUND: include\msvc\wx\setup.h
+        )
+        echo.
+        echo === Checking log.h ===
+        if exist "C:\wxWidgets\include\wx\log.h" (
+          echo log.h exists, showing first 25 lines:
+          powershell -Command "Get-Content 'C:\wxWidgets\include\wx\log.h' -TotalCount 25"
+        ) else (
+          echo ERROR: log.h not found!
+        )
+        echo.
+        echo === Checking built libs ===
+        dir /b C:\wxWidgets\lib\vc_lib\wx*.lib 2>nul
+
     - name: Patch CMakeLists for modern toolset
       shell: bash
       run: |
@@ -80,7 +111,7 @@ jobs:
       env:
         WXWIN: C:\wxWidgets
       run: |
-        cmake -G Ninja -DRTL=MT -DCMAKE_BUILD_TYPE=Release .
+        cmake -G Ninja -DRTL=MT -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON .
 
     - name: Build ALMRun
       shell: cmd
